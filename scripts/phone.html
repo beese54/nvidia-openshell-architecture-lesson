@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- Test wrapper: shows index.html in a 375px-wide frame, because headless Chrome
+     cannot make a window narrower than about 500px. Pass the query string through:
+     scripts/phone.html?selftest=1  or  scripts/phone.html?mode=learn&m=3 -->
+<meta charset="utf-8"><title>375px frame</title>
+<style>body{margin:0;background:#888}iframe{width:375px;height:800px;border:0;display:block}pre{color:#fff;font:12px monospace;white-space:pre-wrap}</style>
+<iframe id="f"></iframe><pre id="selftest"></pre>
+<script>
+const q=new URLSearchParams(location.search); const h=q.get('h'); if(h) document.getElementById('f').style.height=h+'px'; q.delete('h');
+document.getElementById('f').src='../index.html?'+q.toString();
+addEventListener('message',e=>{document.getElementById('selftest').textContent=String(e.data);});
+</script>

@@ -1,0 +1,9 @@
+# Deny-all policy used for the DENY-path inspection (run A).
+# Files: everything read-only except /tmp. Network: no rule, so nothing is allowed out.
+version: 1
+filesystem_policy:
+  include_workdir: false
+  read_only: [/bin, /usr, /lib, /proc, /dev/urandom, /etc, /var/log, /opt, /workspace]
+  read_write: [/tmp, /dev/null]
+landlock:
+  compatibility: best_effort
