@@ -1,6 +1,6 @@
 # Plan: Interactive architecture diagram and lesson on NVIDIA OpenShell
 
-Status: **built and verified, 2026-11-12.** Two decisions remain open (see the end).
+Status: **built and verified, 2026-11-12.** One decision remains open (see the end).
 
 ## Goal
 One page that lets you understand OpenShell from the inside, and a guided lesson on top of it that carries over to running AI agents safely in general.
@@ -67,4 +67,4 @@ The page was first written with links into a private project. Those were removed
 
 ## Open decisions
 1. **Licence:** none chosen. Without one, others may read the repository but not reuse it.
-2. **GitHub Pages:** not enabled. Turning it on would make the page openable on a phone by URL.
+2. ~~GitHub Pages~~ Enabled 2026-11-15 from `main`: https://beese54.github.io/nvidia-openshell-architecture-lesson/

@@ -6,7 +6,9 @@ An interactive architecture diagram and lesson on how [NVIDIA OpenShell](https:/
 
 ## Open it
 
-Download or clone the repository and open `index.html` in a browser. It is one self-contained file with no dependencies and works offline.
+Online: https://beese54.github.io/nvidia-openshell-architecture-lesson/
+
+Or download or clone the repository and open `index.html` in a browser. It is one self-contained file with no dependencies and works offline.
 
 - **Explore:** hover over, tap or tab to any part of a figure. A panel explains it in one plain sentence, then how it really works, then the evidence.
 - **Learn:** nine short modules. Each asks you to predict first, then explore a figure, answer recall questions, run a command yourself, and take away one principle.
