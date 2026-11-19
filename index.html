@@ -124,6 +124,16 @@ svg .ftag{font-size:11px;font-weight:700;letter-spacing:.06em}
 .tdot.on{background:var(--accent);width:22px}
 .tour-end{margin:10px 0 0;font-size:.9rem}
 #tour-mark{cursor:pointer}
+#tour-route .tr-m{cursor:pointer}
+#tour-route .tr-m .tm-dot{fill:var(--surface);stroke:var(--accent);stroke-width:2}
+#tour-route .tr-m .tm-n{fill:var(--accent);font-size:12.5px;font-weight:800}
+#tour-route .tr-m.up .tm-dot{fill:var(--ctrl-bg);stroke-width:3.5}
+#tour-route .tr-m.done .tm-dot{fill:var(--ctrl-bg)}
+#tour-route .tr-m.done .tm-n{opacity:.7}
+#tour-route .tr-m.cur .tm-dot{fill:var(--accent)}
+#tour-route .tr-m.cur .tm-n{fill:var(--surface);font-size:15px}
+#tour-route .tm-ring{fill:none;stroke:var(--accent);stroke-width:2.5;transform-box:fill-box;transform-origin:center;animation:tmpulse 1.6s ease-out infinite}
+.tour-hint{margin:8px 0 0;font-size:.84rem;color:var(--muted)}
 #tour-mark .tm-dot{fill:var(--accent)}
 #tour-mark .tm-ring{fill:none;stroke:var(--accent);stroke-width:2.5;transform-box:fill-box;transform-origin:center;animation:tmpulse 1.6s ease-out infinite}
 #tour-mark .tm-n{fill:var(--surface);font-size:14px;font-weight:800}
@@ -131,7 +141,7 @@ svg .ftag{font-size:11px;font-weight:700;letter-spacing:.06em}
 #tour-mark.start .tm-ring{r:31px}
 #tour-mark.start .tm-n{font-size:12.5px}
 @keyframes tmpulse{from{transform:scale(.8);opacity:.8}to{transform:scale(1.35);opacity:0}}
-@media (prefers-reduced-motion:reduce){#tour-mark .tm-ring{animation:none;opacity:.5}}
+@media (prefers-reduced-motion:reduce){#tour-mark .tm-ring,#tour-route .tm-ring{animation:none;opacity:.5}}
 .scen{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
 .scen-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .scen-buttons .lbl{font-size:.84rem;color:var(--muted);margin-right:4px}
@@ -894,6 +904,7 @@ function renderFig1(el){
   ${E('ch_wl','M932 300 L954 300','',0,0,'two')}
   ${E('sup_net','M840 178 L840 62','allowed traffic only',832,118,'','end')}
   ${E('wl_net','M1094 178 L1094 132','',0,0,'blocked')}
+  <g id="tour-route" aria-hidden="true" style="display:none"></g>
   <g id="tour-mark" data-scen="tour" aria-hidden="true"><circle class="tm-ring" r="22"/><circle class="tm-dot" r="15"/><text class="tm-n" text-anchor="middle" y="5"></text></g>
   </svg>`;
   el.innerHTML=`<div class="tourbar" id="tour-out"></div><div class="scroller">${svg}</div>
@@ -907,7 +918,7 @@ function renderFig1(el){
   el.addEventListener('click',e=>{
     const b=e.target.closest('[data-scen]'); if(b){setScenario(b.dataset.scen||null,0);return;}
     const li=e.target.closest('.steps li'); if(li){setScenario(scenName,+li.dataset.i);return;}
-    const td=e.target.closest('.tdot'); if(td){setScenario(scenName,+td.dataset.ti);return;}
+    const td=e.target.closest('.tdot, .tr-m'); if(td){ const i=+td.dataset.ti; setScenario(scenName, td.classList.contains('cur')?Math.min(i+1,SCEN[scenName].steps.length-1):i); return; }
     if(e.target.id==='st-prev') setScenario(scenName,scenStep-1);
     if(e.target.id==='st-next') setScenario(scenName,scenStep+1);
   });
@@ -919,6 +930,16 @@ function tourMark(key,label){
   if(!r){m.style.display='none';return;}
   m.style.display=''; m.setAttribute('transform',`translate(${+r.getAttribute('x')+(+r.getAttribute('width'))-2} ${+r.getAttribute('y')+2})`);
   $('.tm-n',m).textContent=label; m.classList.toggle('start',label==='Start');
+}
+// during the tour: every step's number on the map, joined in order; done, current and still to come
+function tourPoint(st){ const r=$(`#fig1-body svg [data-key="${st.f||st.n[0]}"] rect`);
+  return r?[+r.getAttribute('x')+(+r.getAttribute('width'))-2, +r.getAttribute('y')+2]:null; }
+function tourRoute(cur){
+  const g=$('#tour-route'); if(!g) return;
+  if(cur===null){ g.style.display='none'; g.innerHTML=''; return; }
+  const P=SCEN.tour.steps.map(tourPoint);
+  g.innerHTML=P.map((p,i)=>`<g class="tr-m ${i<cur?'done':i===cur?'cur':i===cur+1?'todo up':'todo'}" data-ti="${i}" transform="translate(${p[0]} ${p[1]})">${i===cur?'<circle class="tm-ring" r="22"/>':''}<circle class="tm-dot" r="${i===cur?17:13}"/><text class="tm-n" text-anchor="middle" y="${i===cur?5:4.5}">${i+1}</text><title>Step ${i+1}${i===cur?' (click for the next step)':''}</title></g>`).join('');
+  g.style.display='';
 }
 // on a narrow screen the figure scrolls sideways: bring the step's part into view
 function tourFocus(key){
@@ -935,10 +956,10 @@ function setScenario(name,step){
   const out=$('#scen-out'), tout=$('#tour-out');
   out.innerHTML='';
   const startBar=long=>`<button type="button" class="pill tour-go" data-scen="tour">▶ Start here</button><span>${long?'New to OpenShell? Follow the whole flow, one step at a time, from your command to the internet.':'Follow the whole flow, one step at a time.'}</span>`;
-  if(!scenName){ tout.classList.remove('on'); tout.innerHTML=startBar(true); tourMark('harness','Start'); return; }
+  if(!scenName){ tout.classList.remove('on'); tout.innerHTML=startBar(true); tourRoute(null); tourMark('harness','Start'); return; }
   const S=SCEN[scenName]; scenStep=Math.max(0,Math.min(S.steps.length-1,step||0));
   const st=S.steps[scenStep];
-  tourMark(S.tour?(st.f||st.n[0]):null, String(scenStep+1));
+  tourMark(null); tourRoute(S.tour?scenStep:null);
 
   $$('svg .n',root).forEach(g=>{ if(st.n.includes(g.dataset.key)) g.classList.add('on'); else if(!g.classList.contains('zone')&&!['supc','wlc'].includes(g.dataset.key)) g.classList.add('dim'); });
   $$('svg .e',root).forEach(g=>{ if((st.e||[]).includes(g.id.slice(2))) g.classList.add('on'); else g.classList.add('dim'); });
@@ -948,6 +969,7 @@ function setScenario(name,step){
     <div class="stepnav"><button type="button" class="pill" id="st-prev" ${scenStep===0?'disabled':''}>← Back</button><button type="button" class="pill" id="st-next" ${scenStep===S.steps.length-1?'disabled':''}>Next →</button>
     <span class="tour-dots">${S.steps.map((_,i)=>`<button type="button" class="tdot${i===scenStep?' on':''}" data-ti="${i}" aria-label="Step ${i+1}"></button>`).join('')}</span>
     <button type="button" class="pill" data-scen="">End tour</button></div>
+    <p class="tour-hint">Follow the numbers on the map: the filled one is where you are, the bold one is next. Click a number, Next, or press → to go on.</p>
     ${scenStep===S.steps.length-1?'<p class="tour-end">That is the whole flow. Next, follow one request in detail with the buttons under the figure, or open <b>Learn</b>.</p>':''}`;
     if(st.f&&CONTENT[st.f]&&matchMedia('(min-width:981px)').matches) setPinned(st.f);
     tourFocus(st.f||st.n[0]);
@@ -958,6 +980,10 @@ function setScenario(name,step){
   <div class="stepnav"><button type="button" class="pill" id="st-prev" ${scenStep===0?'disabled':''}>← Back</button><button type="button" class="pill" id="st-next" ${scenStep===S.steps.length-1?'disabled':''}>Next →</button><span>Step ${scenStep+1} of ${S.steps.length}</span></div>`;
 }
 
+document.addEventListener('keydown',e=>{
+  if(scenName!=='tour'||!['ArrowRight','ArrowLeft'].includes(e.key)||(e.target.closest&&e.target.closest('input,textarea,select,.vis,#sim-body'))) return;
+  setScenario('tour',scenStep+(e.key==='ArrowRight'?1:-1)); e.preventDefault();
+});
 /* ---------- Figure 2: where policy goes ---------- */
 const YAML_NET={
   deny:{label:'Deny-all policy (run A)',text:'# network_policies:  (absent)\n#   no rule = every outbound connection is denied',empty:true},
@@ -2035,7 +2061,7 @@ function selftest(){
       (st.e||[]).forEach(id=>{ if(!$('#e-'+id)) fail.push(`scenario ${s} step ${i+1}: no edge ${id}`); });
       if(!st.rows||!st.rows.length) fail.push(`scenario ${s} step ${i+1}: no rows`);
       if(!$('#fig1-body .steps li.cur, #fig1-body .tour-cur')) fail.push(`scenario ${s} step ${i+1}: no current step shown`);
-      if(SCEN[s].tour){ if(!st.h||!CONTENT[st.f]) fail.push(`tour step ${i+1}: missing title or focus panel`); if($('#tour-mark').style.display==='none') fail.push(`tour step ${i+1}: no marker`); } }); });
+      if(SCEN[s].tour){ if(!st.h||!CONTENT[st.f]) fail.push(`tour step ${i+1}: missing title or focus panel`); if($$('#tour-route .tr-m').length!==SCEN[s].steps.length) fail.push(`tour step ${i+1}: route does not show every step`); if(+($('#tour-route .tr-m.cur')||{dataset:{}}).dataset.ti!==i) fail.push(`tour step ${i+1}: current number not marked`); } }); });
     setScenario(null);
     LESSON.forEach((m,mi)=>{ setMode('learn',mi);
       if(m.fig&&$('#'+m.fig).hidden) fail.push('module '+mi+': figure hidden');
