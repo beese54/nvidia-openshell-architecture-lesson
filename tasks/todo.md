@@ -1,3 +1,48 @@
+# Plan 2 (2026-11-19): picture cards for "How it really works"
+
+Status: **first batch built 2026-11-19, waiting for the author's review of the look.** The author approved the style to try ("lets try this style").
+
+## Problem
+Each panel explains "how it really works" in one paragraph of text. The reader gets the ELI5 picture and the technical paragraph, but nothing in between that shows the moving parts falling into place.
+
+## Design decisions
+1. **Drawn by the page, not AI-generated images.** No image-generation tool is available here. An AI image would also invent wrong text and detail, and 87 images would weigh several MB. Inline SVG stays exact, sharp at any size, follows light/dark, and keeps `index.html` one self-contained file. Expected cost: about 40–60 KB.
+2. **One stage, many states.** Almost every frame is the same small map: you, the front desk (gateway), the internet, the playroom (workload), the babysitter's room (supervisor), the hatch (channel) between them, and the shared floor (kernel). A frame lights up the parts involved, dims the rest, and adds arrows, tickets and labels. Because the layout never changes, the reader builds one mental map.
+3. **Close-up frames** for mechanisms that happen inside one part, for example the rulebook check, the placeholder-address table, the two TLS sessions, the folder list, and the 5/10/30-second freeze timeline.
+4. **The cast is the page's own ELI5 cast** (playroom, child, doorkeeper, babysitter, front desk, hatch, floor). Each figure also carries its technical name, so the card connects the ELI5 line to the paragraph.
+5. **A stepper, not a long strip.** The card shows one frame at a time, with numbered dots and ◀ ▶. It works by keyboard and by swipe, and fits the 384px panel and the phone sheet. Each frame has one plain caption and one technical line.
+6. **No new facts.** A card only depicts what the panel's text and evidence already say. Example values (binary, host, address, error) come from the recorded runs: `python3.12`, `example.com:443`, `198.18.0.2`, `EACCES`, HTTP 403. The text paragraph stays under the card.
+
+## Frame families (87 panels)
+| Family | Panels | Card shape |
+|---|---|---|
+| Fig 1 components | 26 | Frame 1: where it sits on the stage. Then 1–3 frames showing its one job (for example policy DNS: name → `198.18.x.x` table; proxy: two TLS sessions; channel: Exchange and Mediate lanes) |
+| Fig 2 policy | 11 | The rulebook's journey: file → desk stores revision → babysitter fetches → split: network part to OPA (outside), file part to Landlock (inside). `y-*` panels: close-up of the YAML line and what it changes |
+| Fig 3 locks | 12 | Three frames: what the agent tries → where the lock stops it on the stage → what the agent sees |
+| Fig 4 `connect()` | 14 | One frame per step on the stage; the card shows previous, this and next step, with a 1–14 progress rail |
+| Fig 5 lifecycle | 18 | Startup rail 1–6, phase chips, freeze timeline (5 s / 10 s / 30 s), generation badges |
+| Limits | 6 | "The gap": what still gets through, drawn as the hole in the picture |
+
+About 230 frames, each defined in one line of data by a small drawing library: a stage, figures, arrows, tickets, tags, close-ups.
+
+## Steps
+- [x] 1. **Engine:** `VIS` data keyed like `CONTENT`, the stage and close-up drawing functions, the stepper card in `showPanel`, light/dark tokens, reduced motion.
+- [x] 2. **Slice:** Fig 4 (14 panels) plus four Fig 1 parts: broker, channel, policy DNS, proxy. Screenshots at 1440px and 375px, light and dark, sent for review. **Stop for approval of the look.** Built: 18 cards, 211 frames (the 14 Fig 4 steps share one 14-frame sequence and open on their own step). Self-test checks every frame at 1440px and 375px: labels inside the picture, at least 10.5px on screen, tags not covering lit labels, stepping works. Both pass. Contact sheets reviewed by eye in light and dark; fixed a cross over the word "internet", arrows crossing the babysitter's title, and tags spilling past the playroom wall.
+- [ ] 3. **The rest** of the families.
+- [ ] 4. **Verify:**
+  - `check_content.py`: every `CONTENT` key has a card, every card key exists, and every example value appears in that panel's text or evidence.
+  - Self-test: every card renders, each frame steps, nothing overflows at 375px, no SVG text smaller than 11px on screen.
+  - Screenshots by eye.
+- [ ] 5. **Ship:** README line, review section, one commit, push. The Pages site updates on its own.
+
+## Fixes already seen in the mockup
+- Frame 1 draws the dashed arrow through the wall to the internet, as if a path existed. It should stop at the wall.
+- Small mono labels are about 9px; the minimum should be 11px. Dimmed parts should drop their technical label.
+- The "seccomp filter" tag overlaps the floor label.
+- The example rule in the close-up (`curl → api.github.com`) is invented. Use the deny-all policy, which has no rules, or the allow example.
+
+---
+
 # Plan: Interactive architecture diagram and lesson on NVIDIA OpenShell
 
 Status: **built and verified, 2026-11-12.** One decision remains open (see the end).
