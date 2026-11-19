@@ -1,6 +1,6 @@
 # Plan 2 (2026-11-19): picture cards for "How it really works"
 
-Status: **first batch built 2026-11-19, waiting for the author's review of the look.** The author approved the style to try ("lets try this style").
+Status: **done 2026-11-19.** The author approved the first batch ("okay with this approach, lets do this") and asked for a guided starting point on the system map, added as step 6.
 
 ## Problem
 Each panel explains "how it really works" in one paragraph of text. The reader gets the ELI5 picture and the technical paragraph, but nothing in between that shows the moving parts falling into place.
@@ -28,12 +28,18 @@ About 230 frames, each defined in one line of data by a small drawing library: a
 ## Steps
 - [x] 1. **Engine:** `VIS` data keyed like `CONTENT`, the stage and close-up drawing functions, the stepper card in `showPanel`, light/dark tokens, reduced motion.
 - [x] 2. **Slice:** Fig 4 (14 panels) plus four Fig 1 parts: broker, channel, policy DNS, proxy. Screenshots at 1440px and 375px, light and dark, sent for review. **Stop for approval of the look.** Built: 18 cards, 211 frames (the 14 Fig 4 steps share one 14-frame sequence and open on their own step). Self-test checks every frame at 1440px and 375px: labels inside the picture, at least 10.5px on screen, tags not covering lit labels, stepping works. Both pass. Contact sheets reviewed by eye in light and dark; fixed a cross over the word "internet", arrows crossing the babysitter's title, and tags spilling past the playroom wall.
-- [ ] 3. **The rest** of the families.
-- [ ] 4. **Verify:**
-  - `check_content.py`: every `CONTENT` key has a card, every card key exists, and every example value appears in that panel's text or evidence.
+- [x] 3. **The rest** of the families. All 87 panels have a card: 400 frame views, about 150 distinct pictures. Shared sequences: Fig 4 (14), policy journey (5), startup (6), phases (4), fail-closed (5), generations (3).
+- [x] 4. **Verify:**
+  - The self-test (not `check_content.py`) checks that every panel has a card and every card has a panel. Example values were checked by hand against each panel's text and evidence, not by a script.
   - Self-test: every card renders, each frame steps, nothing overflows at 375px, no SVG text smaller than 11px on screen.
   - Screenshots by eye.
-- [ ] 5. **Ship:** README line, review section, one commit, push. The Pages site updates on its own.
+- [x] 6. **Guided tour (added by the author):** a "Start here" bar above Figure 1 and a pulsing Start marker on the harness. Next walks eleven steps (you → CLI → gateway → dockerd → two containers → supervisor dials home → locks on → exec → agent reaches out → supervisor decides → allowed traffic → one kernel). Each step lights its parts, puts a numbered marker on the main one, cites audit rows, and on desktop opens that part's panel with its picture card. On a phone it scrolls the figure to the marked part.
+- [x] 5. **Ship:** README line, review section, one commit, push. The Pages site updates on its own.
+
+## Review (2026-11-19)
+- Self-test passes at 1440px and 375px: 87 cards, 400 frame views, 37 scenario steps including the 11 tour steps. Each frame is checked for labels inside the picture, at least 10.5px on screen, and tags not covering lit labels.
+- Every distinct picture was looked at on contact sheets in light and dark. Fixed: YAML indentation lost in SVG text, foot notes floating far below short lists, tags touching the room labels, an arrow over the agent label, the Start button unreadable in light mode, and the tour marker covering node titles.
+- Not checked: a real phone, Safari and Firefox. Overlap between two labels that are not tags is not checked by the script, only by eye.
 
 ## Fixes already seen in the mockup
 - Frame 1 draws the dashed arrow through the wall to the internet, as if a path existed. It should stop at the wall.

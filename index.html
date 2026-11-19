@@ -112,6 +112,26 @@ svg .frame.deny{stroke:var(--deny)} svg .frame.allow{stroke:var(--allow)}
 svg .ftag{font-size:11px;font-weight:700;letter-spacing:.06em}
 
 /* scenario stepper */
+.tourbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface2);font-size:.9rem;color:var(--muted)}
+.tourbar.on{display:block;background:var(--ctrl-bg);border-color:var(--accent);color:var(--ink)}
+.tourbar .tour-go{background:var(--accent);border-color:var(--accent);color:var(--surface);font-weight:700}
+.tour-k{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.tour-cur h3{margin:2px 0 4px;font-size:1.02rem}
+.tour-cur p{margin:0;max-width:80ch}
+.tourbar .stepnav{margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.tour-dots{display:flex;gap:5px;align-items:center;margin:0 6px}
+.tdot{width:12px;height:12px;border-radius:6px;border:1px solid var(--accent);background:var(--surface);padding:0}
+.tdot.on{background:var(--accent);width:22px}
+.tour-end{margin:10px 0 0;font-size:.9rem}
+#tour-mark{cursor:pointer}
+#tour-mark .tm-dot{fill:var(--accent)}
+#tour-mark .tm-ring{fill:none;stroke:var(--accent);stroke-width:2.5;transform-box:fill-box;transform-origin:center;animation:tmpulse 1.6s ease-out infinite}
+#tour-mark .tm-n{fill:var(--surface);font-size:14px;font-weight:800}
+#tour-mark.start .tm-dot{r:24px}
+#tour-mark.start .tm-ring{r:31px}
+#tour-mark.start .tm-n{font-size:12.5px}
+@keyframes tmpulse{from{transform:scale(.8);opacity:.8}to{transform:scale(1.35);opacity:0}}
+@media (prefers-reduced-motion:reduce){#tour-mark .tm-ring{animation:none;opacity:.5}}
 .scen{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
 .scen-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .scen-buttons .lbl{font-size:.84rem;color:var(--muted);margin-right:4px}
@@ -234,6 +254,7 @@ svg .ftag{font-size:11px;font-weight:700;letter-spacing:.06em}
 .vis .vb{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);padding:6px 12px 5px;border-bottom:1px solid var(--line)}
 .vis .vcap{padding:8px 12px 2px;font-size:.9rem;font-weight:600;line-height:1.4}
 .vis .vtech{padding:0 12px 8px;font:12px/1.45 var(--mono);color:var(--muted);overflow-wrap:anywhere}
+.vis .vctl[hidden]{display:none}
 .vis .vctl{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid var(--line)}
 .vis .vctl>button{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:34px;height:34px;font-size:13px;color:var(--ink);flex:none}
 .vis .vctl>button:disabled{opacity:.35}
@@ -783,6 +804,19 @@ function E(id,d,label,lx,ly,cls,anchor){
 
 /* ---------- Figure 1: system map ---------- */
 const SCEN={
+  tour:{label:'Start here', tour:true, steps:[
+    {h:'Start: you',t:'You, or a script you wrote, type an `openshell` command. Everything starts here.',n:['harness','cli'],e:['harness_cli'],f:'harness',rows:['E5','E1']},
+    {h:'The intercom to the front desk',t:'The CLI turns the command into a request to the gateway, over gRPC with mutual TLS: both ends prove who they are.',n:['cli','gateway'],e:['cli_gw'],f:'cli',rows:['H2']},
+    {h:'The front desk orders a sandbox',t:'On `sandbox create`, the gateway\'s Docker driver asks OpenShell\'s own Docker engine to build it.',n:['gateway','drv-compute','dockerd'],e:['gw_dockerd'],f:'drv-compute',rows:['H3','H4']},
+    {h:'Two containers, one hatch',t:'The engine creates the **workload** for your code, with no network at all, and the **supervisor** next to it. A channel in a shared volume is the only link.',n:['dockerd','supc','wlc','channel','noroute'],e:['dockerd_zone','wl_net'],f:'sandboxzone',rows:['C1','C3','N6']},
+    {h:'The supervisor phones home',t:'The supervisor dials out to the gateway, fetches the policy and keeps that line open. The gateway never dials in.',n:['session','gateway','opa'],e:['sup_gw'],f:'session',rows:['H7','P4']},
+    {h:'Locks on, then your command',t:'`openshell-sandbox` puts seccomp and Landlock on itself, then starts your command as uid 1000, inside every lock.',n:['sbx','broker','agent','kernel'],e:[],f:'sbx',rows:['C7','L1','W1']},
+    {h:'Commands come in',t:'Each `exec` takes one road into the workload: gateway → session → SSH server → channel.',n:['gateway','session','ssh','channel','agent'],e:['cli_gw','sup_gw','sup_ch','ch_wl'],f:'ssh',rows:['E1','E2','E3']},
+    {h:'The agent reaches out',t:'When the agent calls `connect()` or looks up a name, the kernel pauses the call and the broker sends the question across the channel.',n:['agent','broker','stub','kernel','channel'],e:['ch_wl','sup_ch'],f:'broker',rows:['N1','D1','X1']},
+    {h:'The supervisor decides',t:'Policy DNS hands out a placeholder address; OPA checks program + host + port. No rule means `EACCES` for the agent and a `DENIED` line in the log.',n:['pdns','opa','broker','agent'],e:['sup_ch','ch_wl'],f:'opa',rows:['D2','N8','N4','N5']},
+    {h:'Allowed traffic goes out',t:'If a rule matches, the supervisor dials the real server from the host network, reads each HTTPS request if the rule asks for it, and relays the bytes.',n:['proxy','internet','channel','agent'],e:['sup_net','sup_ch','ch_wl'],f:'proxy',rows:['N9','T3','N3']},
+    {h:'Under it all: one kernel',t:'Every lock you have seen is a feature of the one Linux kernel that the host and both containers share. That is the main limit of this setup.',n:['kernel','host'],e:[],f:'kernel',rows:['C1','Z1']}
+  ]},
   exec:{label:'exec', steps:[
     {t:'A harness runs `openshell sandbox exec … -- <command>` with stdin closed.',n:['harness','cli'],e:['harness_cli'],rows:['E6']},
     {t:'The CLI sends an `ExecSandbox` request to the gateway over gRPC with mutual TLS.',n:['cli','gateway'],e:['cli_gw'],rows:['H2','E1']},
@@ -860,11 +894,12 @@ function renderFig1(el){
   ${E('ch_wl','M932 300 L954 300','',0,0,'two')}
   ${E('sup_net','M840 178 L840 62','allowed traffic only',832,118,'','end')}
   ${E('wl_net','M1094 178 L1094 132','',0,0,'blocked')}
+  <g id="tour-mark" data-scen="tour" aria-hidden="true"><circle class="tm-ring" r="22"/><circle class="tm-dot" r="15"/><text class="tm-n" text-anchor="middle" y="5"></text></g>
   </svg>`;
-  el.innerHTML=`<div class="scroller">${svg}</div>
+  el.innerHTML=`<div class="tourbar" id="tour-out"></div><div class="scroller">${svg}</div>
   <p class="hint only-narrow">Swipe the figure sideways to see all of it.</p>
   <div class="scen"><div class="scen-buttons"><span class="lbl">Follow a request:</span>
-  ${Object.keys(SCEN).map(k=>`<button type="button" class="pill" data-scen="${k}" aria-pressed="false">${esc(SCEN[k].label)}</button>`).join('')}
+  ${Object.keys(SCEN).filter(k=>!SCEN[k].tour).map(k=>`<button type="button" class="pill" data-scen="${k}" aria-pressed="false">${esc(SCEN[k].label)}</button>`).join('')}
   <button type="button" class="pill" data-scen="" id="scen-clear" hidden>clear</button></div>
   <div id="scen-out"></div></div>`;
   $$('svg .n.deny rect',el).forEach(r=>{r.style.fill='var(--deny-bg)';r.style.stroke='var(--deny)';});
@@ -872,9 +907,24 @@ function renderFig1(el){
   el.addEventListener('click',e=>{
     const b=e.target.closest('[data-scen]'); if(b){setScenario(b.dataset.scen||null,0);return;}
     const li=e.target.closest('.steps li'); if(li){setScenario(scenName,+li.dataset.i);return;}
+    const td=e.target.closest('.tdot'); if(td){setScenario(scenName,+td.dataset.ti);return;}
     if(e.target.id==='st-prev') setScenario(scenName,scenStep-1);
     if(e.target.id==='st-next') setScenario(scenName,scenStep+1);
   });
+  setScenario(null);
+}
+// the numbered marker that shows where to look on Figure 1
+function tourMark(key,label){
+  const m=$('#tour-mark'), r=key&&$(`#fig1-body svg [data-key="${key}"] rect`); if(!m) return;
+  if(!r){m.style.display='none';return;}
+  m.style.display=''; m.setAttribute('transform',`translate(${+r.getAttribute('x')+(+r.getAttribute('width'))-2} ${+r.getAttribute('y')+2})`);
+  $('.tm-n',m).textContent=label; m.classList.toggle('start',label==='Start');
+}
+// on a narrow screen the figure scrolls sideways: bring the step's part into view
+function tourFocus(key){
+  const sc=$('#fig1-body .scroller'), g=$(`#fig1-body svg [data-key="${key}"]`); if(!sc||!g||sc.scrollWidth<=sc.clientWidth) return;
+  const r=g.getBoundingClientRect(), s=sc.getBoundingClientRect();
+  sc.scrollLeft+=(r.left+r.width/2)-(s.left+s.width/2);
 }
 function setScenario(name,step){
   const root=$('#fig1-body'); if(!root) return;
@@ -882,12 +932,28 @@ function setScenario(name,step){
   $$('[data-scen]',root).forEach(b=>b.setAttribute('aria-pressed',b.dataset.scen===(scenName||'-')));
   $('#scen-clear').hidden=!scenName;
   $$('svg .n, svg .e',root).forEach(g=>g.classList.remove('on','dim'));
-  const out=$('#scen-out');
-  if(!scenName){out.innerHTML='';return;}
+  const out=$('#scen-out'), tout=$('#tour-out');
+  out.innerHTML='';
+  const startBar=long=>`<button type="button" class="pill tour-go" data-scen="tour">▶ Start here</button><span>${long?'New to OpenShell? Follow the whole flow, one step at a time, from your command to the internet.':'Follow the whole flow, one step at a time.'}</span>`;
+  if(!scenName){ tout.classList.remove('on'); tout.innerHTML=startBar(true); tourMark('harness','Start'); return; }
   const S=SCEN[scenName]; scenStep=Math.max(0,Math.min(S.steps.length-1,step||0));
   const st=S.steps[scenStep];
+  tourMark(S.tour?(st.f||st.n[0]):null, String(scenStep+1));
+
   $$('svg .n',root).forEach(g=>{ if(st.n.includes(g.dataset.key)) g.classList.add('on'); else if(!g.classList.contains('zone')&&!['supc','wlc'].includes(g.dataset.key)) g.classList.add('dim'); });
   $$('svg .e',root).forEach(g=>{ if((st.e||[]).includes(g.id.slice(2))) g.classList.add('on'); else g.classList.add('dim'); });
+  if(S.tour){
+    tout.classList.add('on');
+    tout.innerHTML=`<div class="tour-cur" aria-live="polite"><div class="tour-k">Step ${scenStep+1} of ${S.steps.length}</div><h3>${md(st.h)}</h3><p>${md(st.t)}${rowsHtml(st.rows)}</p></div>
+    <div class="stepnav"><button type="button" class="pill" id="st-prev" ${scenStep===0?'disabled':''}>← Back</button><button type="button" class="pill" id="st-next" ${scenStep===S.steps.length-1?'disabled':''}>Next →</button>
+    <span class="tour-dots">${S.steps.map((_,i)=>`<button type="button" class="tdot${i===scenStep?' on':''}" data-ti="${i}" aria-label="Step ${i+1}"></button>`).join('')}</span>
+    <button type="button" class="pill" data-scen="">End tour</button></div>
+    ${scenStep===S.steps.length-1?'<p class="tour-end">That is the whole flow. Next, follow one request in detail with the buttons under the figure, or open <b>Learn</b>.</p>':''}`;
+    if(st.f&&CONTENT[st.f]&&matchMedia('(min-width:981px)').matches) setPinned(st.f);
+    tourFocus(st.f||st.n[0]);
+    return;
+  }
+  tout.classList.remove('on'); tout.innerHTML=startBar(false);
   out.innerHTML=`<ol class="steps">${S.steps.map((s,i)=>`<li data-i="${i}" class="${i===scenStep?'cur':''}"><span>${md(s.t)}${rowsHtml(s.rows)}</span></li>`).join('')}</ol>
   <div class="stepnav"><button type="button" class="pill" id="st-prev" ${scenStep===0?'disabled':''}>← Back</button><button type="button" class="pill" id="st-next" ${scenStep===S.steps.length-1?'disabled':''}>Next →</button><span>Step ${scenStep+1} of ${S.steps.length}</span></div>`;
 }
@@ -1474,8 +1540,8 @@ function vStage(on,extra){
   ${g('you',V.person(22,40,'m',.75))}
   ${g('desk',`<rect x="46" y="6" width="160" height="38" rx="7" style="fill:var(--ctrl-bg);stroke:var(--ctrl)" stroke-width="1.5"/><text class="vn" x="56" y="22">Front desk</text>`,`<text class="vm" x="56" y="37">gateway</text>`)}
   ${g('net',`<path d="M252 44a13 13 0 0 1 2-25a17 17 0 0 1 32-5a13 13 0 0 1 24 9a11 11 0 0 1-2 21z" style="fill:var(--surface2);stroke:var(--muted)" stroke-width="1.5"/><text class="vl" x="284" y="36" text-anchor="middle">internet</text>`)}
-  ${g('room',`<rect x="4" y="54" width="150" height="116" rx="9" style="fill:var(--untrust-bg);stroke:var(--untrust)" stroke-width="1.8"/><text class="vn" x="13" y="70">Playroom</text>`,`<text class="vm" x="13" y="84">workload</text>`)}
-  ${g('sitter',`<rect x="186" y="54" width="150" height="116" rx="9" style="fill:var(--trust-bg);stroke:var(--trust)" stroke-width="1.8"/><text class="vn" x="195" y="70">Babysitter</text>`,`<text class="vm" x="195" y="84">supervisor</text>`)}
+  ${g('room',`<rect x="4" y="54" width="150" height="116" rx="9" style="fill:var(--untrust-bg);stroke:var(--untrust)" stroke-width="1.8"/><text class="vn" x="13" y="70">Playroom</text>`,`<text class="vm" x="13" y="82">workload</text>`)}
+  ${g('sitter',`<rect x="186" y="54" width="150" height="116" rx="9" style="fill:var(--trust-bg);stroke:var(--trust)" stroke-width="1.8"/><text class="vn" x="195" y="70">Babysitter</text>`,`<text class="vm" x="195" y="82">supervisor</text>`)}
   ${g('hatch',`<rect x="148" y="108" width="44" height="14" rx="3" style="fill:var(--surface);stroke:var(--ink)" stroke-width="1.4"/><text class="vl" x="170" y="102" text-anchor="middle" style="font-weight:700">hatch</text>`)}
   ${g('child',V.person(40,154,'u'),`<text class="vm" x="40" y="166" text-anchor="middle">agent</text>`)}
   ${g('keeper',V.person(122,154,'u',.82),`<text class="vm" x="122" y="166" text-anchor="middle">PID 1</text>`)}
@@ -1576,6 +1642,246 @@ const VIS={
     Object.assign({},QSEQ[12],{c:'For HTTPS it ends the encryption with its own certificate, so it can read each request\'s method and path.'}),
     Object.assign({},QSEQ[13],{c:'Each request is then checked. With read-only access, GET passes and POST is refused with 403.'})]},
 };
+// --- more close-ups: generic rows, a YAML file, a chain of states ---
+const vTagW=s=>Math.round(s.length*6.95+14);
+Object.assign(VZ,{
+  rows:(title,sub,t,rows,foot)=>{ let y=50, body='';
+    rows.forEach(r=>{ const h=r.b?38:26; body+=vBox(16,y,308,h,r.tone);
+      body+=vTxt(26,y+17,r.a,r.m?'vm':'vl',r.m?'style="fill:var(--ink);font-weight:600"':'style="font-weight:600"');
+      if(r.b) body+=vTxt(26,y+31,r.b,'vm');
+      if(r.tag) body+=V.tag(318-vTagW(r.tag[0]),y+(h-18)/2,r.tag[0],r.tag[1]);
+      y+=h+6; });
+    if(foot) body+=vTxt(16,y+14,foot,'vl','style="fill:var(--muted)"');
+    return vZoom(title,sub,t,body); },
+  yaml:(title,sub,lines,hi,foot)=>{ let body=vBox(16,48,308,lines.length*16+10);
+    lines.forEach((l,i)=>{ if(hi.includes(i)) body+=`<rect x="18" y="${51+i*16}" width="304" height="16" style="fill:var(--ctrl-bg)"/>`;
+      body+=vTxt(26,63+i*16,l,'vm',(hi.includes(i)?'style="fill:var(--ink);font-weight:700;white-space:pre"':'style="fill:var(--ink);white-space:pre"')+' xml:space="preserve"'); });
+    if(foot) body+=vTxt(16,200,foot,'vl','style="fill:var(--muted)"');
+    return vZoom(title,sub,'c',body); },
+  chain:(title,sub,items,cur,foot)=>{ let body='';
+    items.forEach((s,i)=>{ const y=50+i*30, on=i===cur;
+      body+=`<rect x="16" y="${y}" width="308" height="24" rx="12" style="fill:${on?'var(--ctrl-bg)':'var(--surface)'};stroke:${on?'var(--accent)':'var(--line)'}" stroke-width="${on?2.4:1.2}"/>`;
+      body+=`<circle cx="30" cy="${y+12}" r="8" style="fill:${on?'var(--accent)':'var(--surface2)'}"/>`+vTxt(30,y+16,String(i+1),'vm',`text-anchor="middle" style="fill:${on?'var(--surface)':'var(--ink)'};font-weight:700"`);
+      body+=vTxt(46,y+16.5,s,'vl',on?'style="font-weight:700"':'style="fill:var(--muted)"'); });
+    if(foot) body+=vTxt(16,200,foot,'vl','style="fill:var(--muted)"');
+    return vZoom(title,sub,'c',body); },
+  window:()=>vZoom('Close-up: the reconnect window','same supervisor process only','c',
+    vTxt(16,70,'babysitter lost','vl','style="font-weight:600"')+vTxt(324,70,'30 s','vl','text-anchor="end" style="font-weight:600"')+
+    `<rect x="16" y="78" width="308" height="20" rx="10" style="fill:var(--ctrl-bg);stroke:var(--accent)" stroke-width="1.6"/>`+
+    vTxt(170,92,'playroom frozen','vm','text-anchor="middle" style="fill:var(--ink)"')+
+    vBox(16,112,150,40,'a')+vTxt(26,129,'reconnects in time','vl','style="font-weight:600"')+vTxt(26,144,'→ resume','vm')+
+    vBox(174,112,150,40,'d')+vTxt(184,129,'window runs out','vl','style="font-weight:600"')+vTxt(184,144,'→ terminate','vm')+
+    vTxt(16,180,'To resume it must reconnect, replay its','vl','style="fill:var(--muted)"')+vTxt(16,195,'attach and reconfirm the boundary.','vl','style="fill:var(--muted)"')),
+});
+const vf=(svg,c,t,b)=>({svg,c,t,b}), vs=(on,...x)=>()=>vStage(on,x.join(''));
+const POL_YAML=['version: 1','filesystem_policy:','  include_workdir: false','  read_only: [/usr, /etc, /workspace, …]','  read_write: [/tmp, /dev/null]','landlock:','  compatibility: best_effort','network_policies: …'];
+const NET_YAML=['network_policies:','  example_read_only:','    endpoints:','      - host: example.com','        port: 443','        protocol: rest  # + access …','    binaries:','      - path: /usr/local/bin/python3.12'];
+// shared frames
+const FS_ZOOM=vf(()=>VZ.rows('Close-up: files the agent can reach','deny-all policy · Landlock','u',[
+    {a:'/workspace, /usr, /etc …',tag:['read-only','u']},{a:'/tmp, /dev/null',tag:['read-write','a']},{a:'/home and anything unlisted',tag:['cannot open','d']}],
+    'Unlisted paths cannot even be opened.'),
+  'Only the listed paths are visible. Anything unlisted, such as /home, cannot even be opened.','filesystem_policy: read_only · read_write');
+const FS_DENY=vf(vs('room child floor',V.tag(6,90,'write /workspace/x','u'),V.arr(56,138,92,138,'u',1),V.cross(104,138),`<path d="M104 149V176" style="stroke:var(--deny)" stroke-width="1.6" stroke-dasharray="3 3"/>`),
+  'A write outside the list is refused by the kernel, inside the playroom. The babysitter is never asked.','EACCES from Landlock · no log line');
+const FENCE1=vf(vs('room child',V.tag(6,90,'network: none','u'),V.cross(132,56)),
+  'The playroom has no outside door at all: a loopback interface and no routes.','NetworkMode=none · empty routing table');
+const FENCE2=vf(vs('room child',V.arr(58,148,140,148,'u',1),V.cross(150,148),V.tag(6,90,'nowhere to go','d')),
+  'Even if every other lock failed, there is nowhere to walk to. This fence does not depend on them.','the outer fence is independent of the seccomp path');
+const BESTEFF=[vf(()=>VZ.rows('Close-up: if file rules cannot be applied','landlock: compatibility','c',[
+    {a:'best_effort (the default)',b:'starts without them, logs a finding',tag:['starts','d']},{a:'hard_requirement',b:'refuses to start',tag:['stops','a']}],
+    'Choose hard_requirement to fail loudly.'),
+   'With best_effort, a sandbox whose file rules could not be applied still starts. hard_requirement refuses to start instead.','compatibility: best_effort | hard_requirement'),
+  vf(vs('room child',V.tag(6,90,'no file rules!','d')),
+   'The result can be a playroom with no file locks, and only a log line to say so.','high-severity finding in the log')];
+const AUDIT=vf(()=>VZ.rows('Close-up: enforcement: audit (the default)','an inspected endpoint, access: read-only','d',[
+    {a:'GET /',m:1,tag:['allowed','a']},{a:'POST /',m:1,b:'breaks the rule',tag:['logged, allowed','d']}],
+    'Only enforcement: enforce turns it into a 403.'),
+  'A request rule that is only on audit writes the breach in the log and lets the request through.','enforcement: audit logs and allows · enforce blocks');
+const STARTSEQ=[
+ vf(vs('room keeper',V.tag(6,90,'network: none','u')),'First the playroom is built with no network. The doorkeeper starts with one-use bootstrap material.','the driver records evidence that the fence is in place'),
+ vf(vs('room keeper hatch',V.tag(6,90,'waiting','u')),'The doorkeeper deletes the bootstrap material and waits at the hatch. No untrusted code runs yet.','bootstrap consumed · listening on the channel'),
+ vf(vs('desk sitter sitterp book hatch keeper room',V.arr(198,44,240,56,'c'),V.arr(206,115,136,115,'k'),V.tag(196,90,'fetch policy','c')),'The babysitter fetches policy from the front desk, connects through the hatch and checks the builder\'s evidence.','policy and settings from the gateway · attach over the channel'),
+ vf(vs('room keeper floor',V.tag(6,90,'seccomp + Landlock','u')),'The doorkeeper puts the locks on itself and reports what it now enforces.','seccomp broker + Landlock baseline installed'),
+ vf(vs('room keeper hatch sitter sitterp',V.arr(206,115,136,115,'a'),V.tag(196,90,'launch permit','a')),'Only if the babysitter accepts that report does it send the launch permit. A room that cannot prove it is closed never starts your command.','launch permit after the reported properties are accepted'),
+ vf(vs('room child keeper sitter sitterp desk',V.arr(240,56,198,44,'a'),V.tag(196,90,'Ready','a')),'Your command starts inside every lock. The babysitter registers with the front desk; only then is the sandbox Ready.','main process started · SSH started · phase Ready'),
+];
+const PHASES=['Provisioning','Ready','Completed or Error','Stopping, Stopped, Starting, Deleting'];
+const PHSEQ=[
+ vf(()=>VZ.chain('Close-up: the phases','openshell sandbox get',PHASES,0,'Bad configuration: up to 300 s to repair it.'),'Being built, or waiting for the babysitter\'s line to the front desk.','Provisioning · ConfigurationInvalid keeps it here'),
+ vf(()=>VZ.chain('Close-up: the phases','openshell sandbox get',PHASES,1,'Exec, upload and logs only work here.'),'Running, with the babysitter\'s line connected. Exec, upload and logs only work now.','Ready: True (Supervisor session connected)'),
+ vf(()=>VZ.chain('Close-up: the phases','openshell sandbox get',PHASES,2,'Error can also mean the sandbox itself failed.'),'Completed: the main process exited with 0. Error: it failed, or the sandbox\'s own machinery did.','Completed · Error'),
+ vf(()=>VZ.chain('Close-up: the phases','openshell sandbox get',PHASES,3,'Delete also purges credentials.'),'Stop keeps the stored state; a later start needs a new babysitter session. Delete releases everything.','Stopping · Stopped · Starting · Deleting'),
+];
+const FZSEQ=[
+ vf(vs('room keeper hatch sitter sitterp',V.arr(136,115,206,115,'k'),V.tag(6,90,'ping every 5 s','u')),'The doorkeeper checks the hatch every five seconds. No answer within ten, and the line is closed.','liveness probe: 5 s interval, 10 s deadline'),
+ vf(vs('room child keeper hatch',V.cross(170,115),V.pause(40,104),V.tag(56,90,'frozen','d')),'With the babysitter gone, the whole playroom freezes. Nothing runs unsupervised.','process tree frozen · open streams cancelled'),
+ vf(()=>VZ.window(),'The same babysitter process has 30 seconds to reconnect and prove the locks are still on.','30 s window · replay attach · reconfirm the boundary'),
+ vf(vs('room child keeper hatch sitter sitterp',V.arr(206,115,136,115,'a'),V.tick(40,104),V.tag(56,90,'resumed','a')),'If it does, the frozen playroom carries on where it stopped.','process tree resumed'),
+ vf(()=>VZ.rows('Close-up: if the window runs out','fail closed','d',[{a:'1  SIGTERM',m:1},{a:'2  wait the stop grace period'},{a:'3  SIGKILL to anything left',m:1},{a:'4  session marked terminal'}]),'If the window runs out, every process is stopped and the session is over.','SIGTERM · grace period · SIGKILL · terminal'),
+];
+const IDSEQ=[
+ vf(()=>VZ.rows('Close-up: generations','each run of the sandbox','c',[{a:'run 1',b:'its own tokens and approvals',tag:['gen 1','c']},{a:'run 2',b:'everything issued again',tag:['gen 2','c']}],'A token from run 1 means nothing in run 2.'),
+   'Each run of a sandbox is a new generation with its own identifiers.','runtime-generation · auth-epoch'),
+ vf(vs('room keeper hatch sitter sitterp',V.ring(144,104,52,22),V.tag(192,90,'new run → new certs','k')),
+   'Each generation gets a new certificate authority for the hatch, and a new one for reading TLS.','fresh channel CA and certificates · new TLS-termination CA'),
+ vf(vs('room keeper hatch sitter sitterp',V.tag(6,90,'pinned: the first','u'),V.tag(196,90,'a replacement?','d')),
+   'The doorkeeper trusts only the first babysitter process it accepted. A replacement using old credentials is refused.','random supervisor instance id, pinned by the sandbox'),
+];
+const POLSEQ=[
+ vf(()=>VZ.yaml('Close-up: your policy file','passed with --policy at create',POL_YAML,[],'At most 4 MiB.'),'You write the rules as a YAML file and pass it when you create the sandbox.','unknown fields and duplicate keys are rejected'),
+ vf(vs('you desk',V.arr(32,24,46,24,'c'),V.tag(140,14,'rev 1','c')),'The front desk files it as a numbered revision. It stores the rules; it does not enforce them.','policy revision 1, with a hash'),
+ vf(vs('desk sitter sitterp book',V.arr(198,44,240,56,'c'),V.tag(196,90,'fetch policy','c')),'At startup the babysitter collects the rulebook before the child is let into the room.','supervisor fetches the effective policy over gRPC'),
+ vf(vs('desk sitter sitterp book',V.arr(240,56,198,44,'a'),V.tag(196,90,'LOADED v1','a')),'The babysitter builds its rule engine and signs for that exact copy, version and hash.','CONFIG:LOADED [version:1] [hash:…] · FAILED if it cannot'),
+ vf(vs('room keeper hatch sitter sitterp book',V.arr(206,115,136,115,'k'),V.tag(6,90,'file rules','u'),V.tag(196,90,'network rules','t')),'The rulebook splits. Network rules stay with the babysitter; file rules go into the playroom, where the kernel enforces them.','network_policies → OPA · filesystem_policy → Landlock'),
+];
+Object.assign(VIS,{
+  host:{frames:[
+    vf(vs('you desk net room sitter hatch child keeper sitterp book floor'),'Everything on this map is in one building: one Linux machine inside WSL 2.','gateway = a host process · each sandbox = two containers'),
+    vf(vs('desk room sitter floor',V.ring(2,174,336,34)),'The front desk and both rooms stand on the same floor: the host\'s Linux kernel.','containers share the host\'s kernel')]},
+  internet:{frames:[FENCE1,
+    vf(vs('sitter sitterp book net',V.arr(312,108,300,48,'a'),V.tag(196,90,'rule allows','a')),'Only the babysitter goes out, from the host\'s network, and only after a rule allows it.','outbound connections are made by the supervisor')]},
+  harness:{frames:[
+    vf(vs('you desk',V.arr(32,24,46,24,'c')),'A script stands at the front desk and asks for things to be done in the playroom.','the harness shells out to the CLI: create, exec, upload, logs, delete'),
+    vf(()=>VZ.rows('Close-up: passing a command safely','argument list, never a shell string','c',[
+      {a:'["sandbox", "exec", …, text]',m:1,tag:['safe','a']},{a:'"sandbox exec " + text',m:1,tag:['unsafe','d']}],
+      'In a list, untrusted text stays one argument.'),
+     'Pass the command as a list of arguments, so text from the agent can never be spliced into a new command.','argv list, not a shell string')]},
+  cli:{frames:[
+    vf(vs('you desk',V.arr(32,24,46,24,'c')),'The CLI is an intercom: every command you type becomes one request to the front desk.','gRPC to https://127.0.0.1:17670'),
+    vf(()=>VZ.rows('Close-up: mutual TLS','both ends prove who they are','c',[{a:'CLI → desk',b:'client certificate',tag:['checked','a']},{a:'desk → CLI',b:'server certificate',tag:['checked','a']}],'Listening at 127.0.0.1:17670.'),
+     'Both ends show a certificate before any request is accepted.','Authenticated (mTLS transport)')]},
+  gateway:{frames:[
+    vf(vs('you desk sitter sitterp',V.arr(32,24,46,24,'c'),V.arr(240,56,198,44,'c')),'The front desk keeps the records and the rulebook, and passes messages between you and the babysitter.','stores sandboxes and policy revisions · bridges exec and upload'),
+    vf(vs('desk room sitter hatch',V.cross(120,49)),'It never stands at the playroom door. It makes no decision about any single connection.','no per-connection decisions')]},
+  'drv-compute':{frames:[
+    vf(()=>VZ.rows('Close-up: "create a sandbox" becomes','docker compute driver','c',[{a:'a workload container',tag:['no network','u']},{a:'a supervisor container',tag:['host network','t']},{a:'a shared volume',tag:['the channel','k']}],'Sent to OpenShell\'s own Docker engine.'),
+     'The driver turns "create a sandbox" into Docker calls.','gateway extension: docker (compute-driver)'),
+    vf(vs('room sitter hatch',V.tag(6,90,'network: none','u'),V.tag(196,90,'network: host','t')),'The result: two containers side by side, joined only by the shared volume.','NetworkMode=none · NetworkMode=host')]},
+  'drv-cred':{frames:[
+    vf(()=>VZ.rows('Close-up: where secrets would live','credential driver · db-credstore','c',[{a:'the real API key',tag:['desk side','c']},{a:'what the agent would see',tag:['placeholder','u']}],'Not exercised in the two recorded runs.'),
+     'Real keys stay on the front desk\'s side. The agent would only ever see a placeholder.','provider credentials'),
+    vf(vs('desk sitter sitterp room child',V.arr(198,44,240,56,'c'),V.tag(6,90,'placeholder','u'),V.tag(196,90,'real key','c')),'When the agent calls an approved service, the babysitter swaps in the real value for that request.','the supervisor adds credentials per request')]},
+  'drv-mw':{frames:[
+    vf(()=>VZ.chain('Close-up: an allowed HTTP request','openshell/regex middleware',['request rules check it','middleware inspects or changes it','credentials are added','it is sent to the server'],1,'Middleware never sees a real secret.'),
+     'Middleware runs after the request rules and before credentials are added, so it can never see a real secret.','supervisor middleware, in order')]},
+  dockerd:{frames:[
+    vf(()=>VZ.rows('Close-up: two Docker engines','on the same machine, kept apart','c',[{a:'OpenShell\'s own engine',b:'/run/docker-openshell.sock',tag:['sandboxes','t']},{a:'Docker Desktop',b:'your other containers',tag:['separate','m']}],'Data in /var/lib/docker-openshell.'),
+     'OpenShell builds sandboxes with its own Docker engine, separate from Docker Desktop.','systemd: docker-openshell.service')]},
+  sandboxzone:{frames:[
+    vf(vs('room sitter hatch child keeper sitterp book'),'One sandbox is two rooms: the playroom with the agent, and next door the babysitter with the keys and the rules.','workload container + supervisor container + one shared volume'),
+    vf(vs('room sitter book child sitterp',V.tag(6,90,'runs your code','u'),V.tag(196,90,'decides','t')),'The code that decides is never inside the room it guards.','policy and keys live outside the workload')]},
+  supc:{frames:[
+    vf(vs('sitter sitterp book',V.tag(196,90,'uid 65534','t')),'The babysitter runs as an unprivileged user, with no special powers and a read-only filesystem.','uid 65534 · CapDrop ALL · read-only root'),
+    vf(()=>VZ.rows('Close-up: what the babysitter holds','it never runs your code','t',[{a:'the policy',tag:['rules','t']},{a:'gateway credentials',tag:['keys','t']},{a:'the CA private key',tag:['TLS','t']}],'Network: the host\'s, not the playroom\'s.'),
+     'It holds everything the agent must not touch.','host network · supervisor volume ro')]},
+  session:{frames:[
+    vf(vs('desk sitter sitterp',V.arr(240,56,198,44,'c'),V.tag(196,90,'dials out','c')),'At startup the babysitter phones the front desk and keeps the line open.','supervisor → gateway, authenticated'),
+    vf(()=>VZ.rows('Close-up: what rides on the line','one session','c',[{a:'config and policy updates'},{a:'logs'},{a:'every exec and upload relay'}],'The front desk never has to find the room.'),
+     'Config, policy updates, logs and every exec or upload travel on that one line.','relays bridged by the gateway')]},
+  ssh:{frames:[
+    vf(vs('desk sitter sitterp hatch room keeper',V.arr(198,44,240,56,'c'),V.arr(206,115,136,115,'k'),V.tag(196,90,'ssh.sock','t')),'An exec arrives on the line, lands at the babysitter\'s SSH server, then crosses the hatch to run in the playroom.','unix:/run/openshell/ssh.sock · SSH:OPEN ALLOWED'),
+    vf(()=>VZ.rows('Close-up: what arrives here','SSH server in the supervisor','t',[{a:'exec',b:'one command'},{a:'interactive shell'},{a:'file sync',b:'tar based'}],'All of it then runs in the playroom.'),
+     'Exec, interactive shells and file sync all come in this way.','then over the channel into the workload')]},
+  opa:{frames:[
+    Object.assign({},QSEQ[4],{c:'The babysitter reads the rulebook: which program is asking, to go where, on which port.'}),
+    vf(()=>VZ.rows('Close-up: who wins','OPA engine','t',[{a:'an explicit deny',tag:['beats allow','d']},{a:'no matching rule',tag:['deny','d']},{a:'program + host + port match',tag:['allow','a']}]),
+     'No matching rule means no, and an explicit deny beats any allow.','default deny')]},
+  wlc:{frames:[
+    vf(vs('room child keeper',V.tag(6,90,'uid 1000 · no net','u')),'The playroom: an ordinary user, no special powers, no network.','uid 1000 · CapDrop ALL · NetworkMode=none'),
+    vf(vs('room child keeper',V.arr(116,150,58,150,'u'),V.tag(6,90,'PID 1 → command','u')),'The doorkeeper is the first process. Your command is its child.','PID 1 = openshell-sandbox')]},
+  sbx:{frames:[
+    vf(vs('room keeper floor',V.tag(6,90,'seccomp + Landlock','u')),'The doorkeeper installs the locks, then starts your command inside them.','installs the seccomp listener and Landlock'),
+    vf(vs('room keeper hatch child',V.arr(136,115,170,115,'k'),V.tag(6,90,'no keys, no rules','u')),'It holds no policy and no secrets. It can only pass requests through the hatch.','runs as the agent\'s own unprivileged user')]},
+  stub:{frames:[
+    vf(vs('room child keeper hatch',V.arr(52,116,146,114,'u'),V.tag(6,90,'127.0.0.53','u')),'The playroom\'s phone only rings the babysitter: its DNS server forwards every question through the hatch.','/etc/resolv.conf: nameserver 127.0.0.53'),
+    Object.assign({},VIS.pdns.frames[1],{c:'The answer is always a made-up 198.18.x.x address from the babysitter.'})]},
+  agent:{frames:[
+    vf(vs('room child',V.tag(6,90,'uid 1000 · 0 caps','u')),'The agent is your command and everything it starts, running as an ordinary user.','uid 1000 · zero capabilities · no_new_privs'),
+    vf(()=>VZ.rows('Close-up: inherited by every process','none can be shed','u',[{a:'Landlock file rules'},{a:'the seccomp filter'},{a:'no_new_privs',m:1},{a:'zero capabilities'}]),
+     'Every process it starts inherits the same limits, and none of them can remove them.','inherited at fork and exec')]},
+  fs:{frames:[FS_ZOOM,FS_DENY]},
+  capub:{frames:[
+    vf(vs('room child',V.tag(6,90,'ca.crt (public)','u')),'A small folder in the playroom holds the babysitter\'s public certificate, so tools accept the certificates it shows.','/run/openshell-supervisor-ca/material'),
+    vf(()=>VZ.rows('Close-up: variables point tools at it','six in total','u',[{a:'SSL_CERT_FILE, GIT_SSL_CAINFO',m:1,b:'ca-bundle.crt'},{a:'NODE_EXTRA_CA_CERTS, DENO_CERT',m:1,b:'ca.crt'},{a:'the private key',tag:['not here','d']}]),
+     'Common tools are pointed at it. The private key stays with the babysitter.','ca.crt · ca-bundle.crt')]},
+  noroute:{frames:[FENCE1,FENCE2]},
+  kernel:{frames:[
+    vf(vs('desk room sitter floor',V.ring(2,174,336,34)),'seccomp, Landlock, capabilities and file permissions are all features of this one floor.','the Linux kernel, shared by the host and both containers'),
+    vf(vs('room child floor',V.arr(72,150,72,174,'u'),V.tag(6,90,'every syscall','u')),'Every call the agent makes goes to the same kernel as your host. It is the one thing every lock depends on.','one shared kernel')]},
+  'pol-file':{frames:POLSEQ,start:0}, 'pol-gateway':{frames:POLSEQ,start:1}, 'pol-fetch':{frames:POLSEQ,start:2}, 'pol-ack':{frames:POLSEQ,start:3},
+  'y-version':{frames:[
+    vf(()=>VZ.yaml('Close-up: the first line','required',POL_YAML,[0],'Must be 1.'),'The file must say version: 1.','version: 1'),
+    vf(()=>VZ.rows('Close-up: the parser has no permissive mode','anything unrecognised','d',[{a:'versoin: 1',m:1,b:'a typo',tag:['refused','d']},{a:'an unknown field',tag:['refused','d']},{a:'a duplicate key',tag:['refused','d']}]),
+     'A typo cannot silently weaken your rules: the whole file is refused instead.','invalid file → sandbox does not start with it')]},
+  'y-fs':{frames:[
+    vf(()=>VZ.yaml('Close-up: filesystem_policy','turned into Landlock rules',POL_YAML,[1,2,3,4],'Not listed = not accessible.'),'Two lists of absolute paths: read-only and read-write. include_workdir: false keeps the working directory off the writable list.','read_only · read_write · include_workdir'),
+    FS_ZOOM]},
+  'y-landlock':{frames:BESTEFF},
+  'y-net':{frames:[
+    vf(()=>VZ.yaml('Close-up: network_policies','the allow example',NET_YAML,[1,3,4,7]),'Each named rule lists endpoints (host, port, options) and the programs allowed to use them.','endpoints + binaries'),
+    vf(()=>VZ.yaml('Close-up: network_policies','the deny-all policy',['# network_policies:  (absent)','#   no rule = every outbound','#   connection is denied'],[0]),'Leave it out, or leave it empty, and every outbound connection is denied.','absent or empty → deny all')]},
+  'enf-landlock':{frames:[
+    vf(vs('room keeper child floor',V.arr(116,150,58,150,'u'),V.tag(6,90,'locked, then start','u')),'Before starting your command, the doorkeeper locks itself in with the file rules. The child inherits the lock.','Landlock ruleset applied by openshell-sandbox to itself'),
+    FS_DENY]},
+  'enf-process':{frames:[
+    vf(()=>VZ.rows('Close-up: who the agent runs as','set before launch','u',[{a:'process.run_as_user',m:1,b:'chosen in the policy',tag:['used','a']},{a:'not set',b:'the image\'s USER',tag:['default','m']},{a:'root',tag:['rejected','d']}],'Fixed for the life of the sandbox.'),
+     'The policy can choose the user; root is rejected. Without it, the image\'s USER is used.','run_as_user · run_as_group'),
+    vf(vs('room child',V.tag(6,90,'uid 1000','u')),'In both recorded runs the agent ran as uid 1000.','uid=1000(sandbox)')]},
+  'enf-opa':{frames:[
+    vf(vs('room keeper hatch sitter sitterp book',V.arr(136,115,206,115,'k'),V.tag(196,90,'check every one','t')),'Network rules live in the babysitter\'s room, outside the workload, and are checked for every connection the doorkeeper refers.','OPA in the supervisor'),
+    vf(vs('desk sitter sitterp book',V.arr(198,44,240,56,'c'),V.tag(196,90,'new rules, live','c')),'Because they live outside the playroom, they can be replaced while the sandbox runs.','network_policies are dynamic')]},
+  'lock-fence':{frames:[FENCE1,FENCE2]},
+  'lock-seccomp':{frames:[
+    Object.assign({},QSEQ[1],{c:'Socket setup calls become questions: the kernel pauses them and wakes the doorkeeper.'}),
+    Object.assign({},QSEQ[2],{c:'Because the doorkeeper sees which program is calling, rules can name a program.'})]},
+  'lock-opa':{frames:[
+    Object.assign({},QSEQ[4],{c:'Program, host and port must all match a rule. Anything not listed is refused.'}),
+    vf(()=>VZ.rows('Close-up: a rule written for one program','allow example','t',[{a:'python3.12 → example.com:443',m:1,tag:['allow','a']},{a:'another program, same host',tag:['deny','d']}]),
+     'A rule for one program cannot be borrowed by another.','binaries: /usr/local/bin/python3.12')]},
+  'lock-l7':{frames:[QSEQ[13],QSEQ[12]]},
+  'lock-landlock':{frames:[FS_ZOOM,FS_DENY]},
+  'lock-perms':{frames:[
+    vf(()=>VZ.rows('Close-up: two checks on /workspace/x','the agent (uid 1000) owns /workspace','u',[{a:'1  Unix permissions',b:'the owner may write',tag:['yes','a']},{a:'2  Landlock',b:'listed read-only',tag:['no','d']}],'Result: EACCES.'),
+     'Permissions alone would have allowed the write. Landlock is the layer that refuses it.','permissions are checked first, then Landlock')]},
+  'lock-baseline':{frames:[
+    vf(vs('room child hatch',V.arr(56,128,140,116,'u',1),V.cross(150,115),V.tag(6,90,'ls /.openshell','u')),'The agent cannot even list the machinery that contains it.','Landlock denies /.openshell'),
+    vf(()=>VZ.rows('Close-up: the self-protection baseline','always on, separate from your policy','u',[{a:'/.openshell',m:1,b:'the channel and bootstrap files',tag:['hidden','d']}],'Your policy cannot switch it off.'),
+     'A mandatory set of file rules hides the hatch\'s files from the agent.','mandatory Landlock baseline')]},
+  'lock-uid':{frames:[
+    vf(()=>VZ.rows('Close-up: what an ordinary user cannot do','uid 1000, never changed','u',[{a:'mount a filesystem',tag:['needs root','d']},{a:'load a kernel module',tag:['needs root','d']},{a:'read other users\' files',tag:['denied','d']}]),
+     'The agent runs as an ordinary user, chosen before launch, so everything that needs root is out of reach.','uid 1000')]},
+  'lock-caps':{frames:[
+    vf(()=>VZ.rows('Close-up: root\'s powers, split up','capabilities','u',[{a:'CAP_NET_ADMIN',m:1,tag:['dropped','d']},{a:'CAP_SYS_ADMIN',m:1,tag:['dropped','d']},{a:'… every other one',tag:['dropped','d']}],'Bounding set empty: none can come back.'),
+     'Linux splits root\'s powers into capabilities. Both containers drop all of them.','CapEff 0 · CapBnd 0')]},
+  'lock-nnp':{frames:[
+    vf(()=>VZ.rows('Close-up: no_new_privs','a kernel flag on the process','u',[{a:'run a setuid program',b:'would normally gain privilege',tag:['no gain','d']},{a:'install a seccomp filter',b:'allowed because of this flag',tag:['possible','a']}]),
+     'No program the agent runs can raise its privileges, and the flag is what lets the doorkeeper install seccomp without root.','NoNewPrivs 1')]},
+  'lock-limits':{frames:[
+    vf(()=>VZ.rows('Close-up: limits on sandbox create','Docker runtime limits','u',[{a:'--cpu',m:1,b:'a CPU limit'},{a:'--memory',m:1,b:'a memory limit'}],'A runaway process cannot take the host down.'),
+     'CPU and memory caps stop a runaway or hostile input from starving the host.','--cpu · --memory')]},
+  'lock-execcap':{frames:[
+    vf(()=>VZ.rows('Close-up: the exec budget','per generation','u',[{a:'exec attempts 1 … 4,096',tag:['accepted','a']},{a:'attempt 4,097',tag:['rejected','d']}],'Request ids are never reused.'),
+     'A sandbox accepts at most 4,096 exec attempts per run. Request ids are never reused, which protects against replay.','4,096 per generation')]},
+  'st-1':{frames:STARTSEQ,start:0}, 'st-2':{frames:STARTSEQ,start:1}, 'st-3':{frames:STARTSEQ,start:2}, 'st-4':{frames:STARTSEQ,start:3}, 'st-5':{frames:STARTSEQ,start:4}, 'st-6':{frames:STARTSEQ,start:5},
+  'ph-provisioning':{frames:PHSEQ,start:0}, 'ph-ready':{frames:PHSEQ,start:1}, 'ph-ended':{frames:PHSEQ,start:2}, 'ph-stopped':{frames:PHSEQ,start:3},
+  'fz-probe':{frames:FZSEQ,start:0}, 'fz-freeze':{frames:FZSEQ,start:1}, 'fz-window':{frames:FZSEQ,start:2}, 'fz-resume':{frames:FZSEQ,start:3}, 'fz-kill':{frames:FZSEQ,start:4},
+  'id-epoch':{frames:IDSEQ,start:0}, 'id-ca':{frames:IDSEQ,start:1}, 'id-pin':{frames:IDSEQ,start:2},
+  'lim-kernel':{frames:[
+    vf(vs('room child floor',V.arr(72,150,72,174,'u'),V.tag(6,90,'every syscall','u')),'Every system call the agent makes goes to your host\'s own kernel.','Docker driver: one shared kernel'),
+    vf(vs('desk room sitter child keeper sitterp book floor',V.ring(2,174,336,34),V.tag(6,90,'all locks','d')),'A kernel bug the playroom can reach defeats every lock at once.','seccomp, Landlock, capabilities: all kernel features')]},
+  'lim-besteffort':{frames:BESTEFF},
+  'lim-audit':{frames:[AUDIT]},
+  'lim-nolog':{frames:[
+    vf(()=>VZ.rows('Close-up: what reaches the log','OCSF events','k',[{a:'connect to a host not in a rule',b:'NET:OPEN … DENIED',tag:['logged','a']},{a:'write to a read-only path',b:'refused by the kernel',tag:['no line','d']}],'Keep your own record of file refusals.'),
+     'Network denials are logged. File denials are refused by the kernel and never reach OpenShell.','Landlock refusals produce no OpenShell event')]},
+  'lim-tcp':{frames:[
+    vf(()=>VZ.rows('Close-up: how wide is the door?','what an allowed endpoint checks','d',[{a:'protocol: rest',m:1,b:'every request is read',tag:['narrow','a']},{a:'protocol: tcp, tls: skip',m:1,b:'destination only',tag:['wide','d']},{a:'a wildcard host',b:'data can leave in DNS names',tag:['leaky','d']}]),
+     'Checked by destination only, an allowed host can lead to other services behind the same address.','protocol: tcp · tls: skip · wildcard hosts')]},
+  'lim-you':{frames:[
+    vf(vs('room child sitter sitterp book',V.tag(6,90,'should it?','u'),V.tag(196,90,'can it?','t')),'The babysitter answers "can this program reach that file or host?" It never asks "should the agent do this?"','access, not intent'),
+    vf(()=>VZ.rows('Close-up: controls you build around it','outside OpenShell','k',[{a:'review proposed actions'},{a:'require human approval'},{a:'check the results'}]),
+     'Deciding what is appropriate is up to the controls you put around the sandbox.','your harness, your review')]},
+});
 ['q-connect','q-notify','q-identify','q-ask','q-opa','q-deny','q-log','q-eacces','q-dial','q-socket','q-ok','q-bytes','q-l7','q-403']
   .forEach((k,i)=>VIS[k]={frames:QSEQ,start:i,num:true});
 let visKey=null, visIdx=0;
@@ -1588,7 +1894,7 @@ function renderVis(i){
     :`<span class="vcount">${visIdx+1} / ${n}</span><span class="vrail"><span style="width:${(visIdx+1)/n*100}%"></span></span>`;
   box.innerHTML=`${f.b?`<div class="vb">${esc(f.b)}</div>`:''}${f.svg().replace('role="img"',`role="img" aria-label="${esc(f.c)}"`)}
   <div class="vcap" aria-live="polite">${v.num?`<b>${visIdx+1}.</b> `:''}${esc(f.c)}</div><div class="vtech">${esc(f.t)}</div>
-  <div class="vctl"><button class="vprev" aria-label="Previous picture"${visIdx?'':' disabled'}>◀</button><div class="vdots">${dots}</div><button class="vnext" aria-label="Next picture"${visIdx<n-1?'':' disabled'}>▶</button></div>`;
+  ${n>1?'':'<!-- one picture: no controls -->'}<div class="vctl"${n>1?'':' hidden'}><button class="vprev" aria-label="Previous picture"${visIdx?'':' disabled'}>◀</button><div class="vdots">${dots}</div><button class="vnext" aria-label="Next picture"${visIdx<n-1?'':' disabled'}>▶</button></div>`;
 }
 function initVis(key){ visKey=VIS[key]?key:null; if(visKey) renderVis(VIS[key].start||0); }
 panel.addEventListener('click',e=>{ if(!visKey) return;
@@ -1708,6 +2014,7 @@ function selftest(){
       if(r.left<-1||r.right>vw+1) fail.push('panel off screen horizontally: '+k);
       if(r.height>vh+1) fail.push('panel taller than screen: '+k);
       if(!$$(`[data-key="${k}"]`).every(el=>el.classList.contains('sel'))) fail.push('not marked selected: '+k); });
+    Object.keys(CONTENT).forEach(k=>{ if(!VIS[k]) fail.push('no picture card for '+k); });
     Object.keys(VIS).forEach(k=>{ if(!CONTENT[k]){fail.push('picture card for unknown panel '+k);return;} n.cards++; setPinned(k);
       const v=VIS[k]; if(visIdx!==(v.start||0)) fail.push(`card ${k}: opens on ${visIdx+1}, want ${(v.start||0)+1}`);
       for(let i=0;i<v.frames.length;i++){ renderVis(i); n.frames++; const f=v.frames[i], svg=$('.vis svg',panel);
@@ -1720,14 +2027,15 @@ function selftest(){
           if(px<10.5) fail.push(`card ${k} frame ${i+1}: label too small (${px.toFixed(1)}px): ${t.textContent}`); });
         $$('.vtag',svg).forEach(g=>{ const bb=g.getBBox(); if(bb.x<0||bb.x+bb.width>VW+0.5) fail.push(`card ${k} frame ${i+1}: tag outside picture: ${g.textContent}`);
           $$('text',svg).forEach(t=>{ if(g.contains(t)) return; const a=t.getBBox(); if(a.x<bb.x+bb.width-1&&bb.x<a.x+a.width-1&&a.y<bb.y+bb.height-1&&bb.y<a.y+a.height-1&&!t.closest('.vd')) fail.push(`card ${k} frame ${i+1}: tag "${g.textContent}" covers "${t.textContent}"`); }); });
-        const cur=$('.vis .vdot.on',panel)||$('.vis .vcount',panel); if(!cur) fail.push(`card ${k} frame ${i+1}: no position shown`); }
-      $('.vis .vprev',panel).click(); if(visIdx!==v.frames.length-2) fail.push(`card ${k}: previous button does not step back`); });
+        const cur=$('.vis .vdot.on',panel)||$('.vis .vcount',panel); if(v.frames.length>1&&!cur) fail.push(`card ${k} frame ${i+1}: no position shown`); }
+      if(v.frames.length>1){ $('.vis .vprev',panel).click(); if(visIdx!==v.frames.length-2) fail.push(`card ${k}: previous button does not step back`); } });
     setPinned(null);
     Object.keys(SCEN).forEach(s=>{ SCEN[s].steps.forEach((st,i)=>{ n.steps++; setScenario(s,i);
       st.n.forEach(k=>{ if(!$(`#fig1-body [data-key="${k}"]`)) fail.push(`scenario ${s} step ${i+1}: no node ${k}`); else if(!$(`#fig1-body [data-key="${k}"]`).classList.contains('on')) fail.push(`scenario ${s} step ${i+1}: node ${k} not lit`); });
       (st.e||[]).forEach(id=>{ if(!$('#e-'+id)) fail.push(`scenario ${s} step ${i+1}: no edge ${id}`); });
       if(!st.rows||!st.rows.length) fail.push(`scenario ${s} step ${i+1}: no rows`);
-      if(!$('#fig1-body .steps li.cur')) fail.push(`scenario ${s} step ${i+1}: no current step shown`); }); });
+      if(!$('#fig1-body .steps li.cur, #fig1-body .tour-cur')) fail.push(`scenario ${s} step ${i+1}: no current step shown`);
+      if(SCEN[s].tour){ if(!st.h||!CONTENT[st.f]) fail.push(`tour step ${i+1}: missing title or focus panel`); if($('#tour-mark').style.display==='none') fail.push(`tour step ${i+1}: no marker`); } }); });
     setScenario(null);
     LESSON.forEach((m,mi)=>{ setMode('learn',mi);
       if(m.fig&&$('#'+m.fig).hidden) fail.push('module '+mi+': figure hidden');
