@@ -265,6 +265,9 @@ svg .ftag{font-size:11px;font-weight:700;letter-spacing:.06em}
 .vis .vcap{padding:8px 12px 2px;font-size:.9rem;font-weight:600;line-height:1.4}
 .vis .vtech{padding:0 12px 8px;font:12px/1.45 var(--mono);color:var(--muted);overflow-wrap:anywhere}
 .vis .vctl[hidden]{display:none}
+.lesson-pics{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:14px}
+.lesson-pics .vis{margin:0}
+@media (max-width:520px){.lesson-pics{grid-template-columns:minmax(0,1fr);margin-left:-12px;margin-right:-12px}}
 .vis .vctl{display:flex;align-items:center;gap:8px;padding:6px 10px;border-top:1px solid var(--line)}
 .vis .vctl>button{border:1px solid var(--line);background:var(--surface);border-radius:999px;width:34px;height:34px;font-size:13px;color:var(--ink);flex:none}
 .vis .vctl>button:disabled{opacity:.35}
@@ -1384,6 +1387,44 @@ const LESSON=[
  carry:{principle:"Default deny, at a choke point the agent cannot walk around.",
   text:"An allow-list fails safe: anything you forgot is blocked. Enforcing it at the system-call level covers every program without its cooperation. And a second, simpler layer behind it (no network interface at all) means one bug is not enough.",rows:["N6","N1"]}},
 
+{id:"tls",short:"TLS & DNS",title:"TLS, mTLS and the fake DNS",fig:"fig1",
+ goal:"Three ideas the other modules lean on: what TLS proves, why OpenShell makes both ends of its own connections prove who they are, and why the agent is only ever told made-up addresses.",
+ explore:"Start with the four pictures below. Then tap **openshell CLI**, **channel**, **policy proxy + TLS** and **policy DNS** in the figure and step through each panel's pictures. For each connection ask: who shows a certificate here, and who checks it?",
+ pics:[
+  {svg:()=>VZ.tlsOne(),c:'Normal TLS: the server shows its ID card (a certificate) and the client checks it. The client is not asked for one.',t:'what happens when you open a website'},
+  {svg:()=>VZ.tlsBoth(),c:'Mutual TLS: both ends show a certificate. A program without the client key is turned away, even on the same machine.',t:'how the CLI talks to the gateway'},
+  {svg:()=>VZ.rows('Close-up: TLS in OpenShell','three connections, three kinds','k',[
+     {a:'CLI ↔ gateway',b:'only real clients can give orders',tag:['mTLS','c']},
+     {a:'babysitter ↔ playroom',b:'new certificates each run',tag:['mutual','t']},
+     {a:'agent → example.com',b:'read by the babysitter',tag:['normal TLS','u']}]),
+   c:'Mutual authentication protects OpenShell\'s own machinery. The agent\'s HTTPS is ordinary TLS that the babysitter ends and re-opens.',t:'gRPC + mTLS · mutually authenticated channel · OpenShell Sandbox CA'},
+  {svg:()=>VZ.rows('Close-up: a lookup that tries to leak','deny-all policy','d',[
+     {a:'secret123.attacker.example?',m:1,b:'the agent asks',tag:['logged','m']},
+     {a:'answer: 198.18.0.3',m:1,b:'a made-up address that leads nowhere',tag:['fake','u']},
+     {a:'the real DNS server',b:'the name is in no rule',tag:['not asked','a']}],
+     'A wildcard host rule would reopen this.'),
+   c:'A name no rule allows never reaches a real DNS server, so it cannot carry a secret out. OpenShell still logs it.',t:'NET:REFUSE DENIED <name> · real resolver only after policy passes'}],
+ predict:{q:"A program you did not write runs on your laptop and connects to `127.0.0.1:17670`, the gateway's address, then sends a well-formed `CreateSandbox` request. What should happen?",
+  opts:["It works: `127.0.0.1` can only be reached from this machine, so the caller is trusted.","It is turned away, because it cannot show a client certificate the gateway trusts.","It works, but the request is logged so you can see it later."],a:1,
+  why:"`127.0.0.1` keeps the network out, not other programs on the same machine. The gateway uses mutual TLS, so every caller must present a client certificate it trusts. A program without the CLI's key cannot complete the handshake. (This follows from mTLS; it was not tested with a rogue program here.)",rows:["H2"]},
+ checks:[
+  {q:"In normal TLS, as when you open a website, who proves their identity with a certificate?",opts:["Only the server.","Only the client.","Both."],a:0,
+   why:"The server shows a certificate signed by an authority the client trusts, and the client checks it, as the agent did for `example.com`. A website learns who you are later, with a password or a cookie.",hint:"Think of a website visit: who has to show an ID card?",rows:["T3"]},
+  {q:"Which of these connections use mutual authentication?",opts:["Only the agent's HTTPS to `example.com`.","The CLI to the gateway, and the two halves of the sandbox over the channel.","None of them: everything runs on one machine."],a:1,
+   why:"The CLI authenticates to the gateway with mTLS, and the channel is one mutually authenticated gRPC connection. The agent's own HTTPS is ordinary TLS that the supervisor ends and re-opens.",hint:"Look at the third picture.",rows:["H2","X1","T3"]},
+  {q:"The channel's certificates are new every time the sandbox runs. What does that buy you?",opts:["Faster handshakes.","A certificate stolen from one run is useless in the next.","Nothing; it only keeps things tidy."],a:1,
+   why:"Each generation gets a fresh CA and separate server and client certificates, so credentials from an old run mean nothing to the new one.",hint:"Tap the channel and step to its last picture.",rows:["X2"]},
+  {q:"Your policy allows only `example.com`. The agent looks up `secret123.attacker.example`. What reaches a real DNS server?",opts:["The full name, so the attacker's DNS server sees the secret.","Nothing: the name is in no rule, so the real resolver is never asked.","Only the last part, `attacker.example`."],a:1,
+   why:"An unapproved name gets a placeholder and is never sent to a real resolver. OpenShell logs it as `NET:REFUSE DENIED`. A wildcard host rule would reopen this channel.",hint:"Look at the fourth picture.",rows:["D5","D4","Z7"]},
+  {q:"Why are network rules written with names like `example.com` rather than IP addresses?",opts:["Names are shorter to type.","The supervisor ties each placeholder to a name and pins the real addresses itself, so a rule follows the name even when addresses change or are shared.","DNS is faster than connecting by IP."],a:1,
+   why:"The placeholder `198.18.0.2` stands for `example.com` and its allowed ports. The supervisor resolved the real addresses, pinned them, and dials only those. The agent never learns them.",hint:"Tap **policy DNS** and step to its last picture.",rows:["D3","D7","N9"]}
+ ],
+ tryit:{intro:"Start a lab sandbox with `POLICY=evidence/policy_allow_example.yaml`, then run the probe script from this repository's folder. Look at three lines: the address DNS gave, the address the socket is connected to, and who issued the certificate the agent was shown.",
+  cmd:"$X python3 -c \"$(cat evidence/probe.py)\" </dev/null | grep -E '^(dns example.com|tcp example.com|tls example.com)'\nopenshell logs $NAME --source sandbox -n 2000 --color never | grep -m1 'Policy DNS mapped'",
+  expect:"dns example.com: 198.18.0.2  [0.01s]\ntcp example.com:443: connected, getpeername=('198.18.0.2', 443)  [0.01s]\ntls example.com: peer=('198.18.0.2', 443) issuer=((('commonName', 'OpenShell Sandbox CA'),), (('organizationName', 'OpenShell'),)) subject=((('commonName', 'example.com'),),)  [0.03s]\n[…] CONFIG:PUBLISHED [INFO] Policy DNS mapped example.com resolved=104.20.23.154,172.66.147.243 synthetic=198.18.0.2 ports=443 …",rows:["D2","N9","T3","D7"]},
+ carry:{principle:"Make every part prove who it is with a key, and never hand the contained side anything real.",
+  text:"Between parts you control, mutual TLS turns identity into a key file instead of a password, and refuses strangers even on the same machine. Towards the contained side, give out stand-ins: a placeholder address instead of the real one, a public certificate instead of the private key. Then what the agent can see is worth nothing outside the box. Keep the key files themselves where only the trusted side can read them.",rows:["H2","X1","T2","D5","N9"]}},
+
 {id:"m4",short:"Policy",title:"Policy: what is fixed, what is live, and least privilege",fig:"fig2",
  goal:"One file, two enforcers. Learn which half can change while the sandbox runs, and how to write a network rule that allows exactly one thing.",
  explore:"Tap each block of the YAML and see which enforcer card it belongs to. Then switch to **Allow example (run B)** and read the network rule line by line: one host, one port, one binary, reads only, enforced.",
@@ -1699,6 +1740,19 @@ Object.assign(VZ,{
     vBox(184,50,140,74,'u')+vTxt(194,66,'playroom gets','vm')+vTxt(194,86,'public certificate','vl','style="font-weight:700"')+vTxt(194,104,'checks cards','vm')+
     vTxt(16,142,'Only the public half crosses into the playroom.','vl','style="fill:var(--muted)"')+
     vBox(16,152,308,44)+vTxt(26,169,'card shown to the agent for example.com','vl')+vTxt(26,186,'issuer: OpenShell Sandbox CA','vm','style="fill:var(--ink);font-weight:600"')),
+  tlsOne:()=>vZoom('Normal TLS: only the server shows ID','a website visit','k',
+    vBox(16,50,118,40,'u')+vTxt(26,67,'client','vl','style="font-weight:700"')+vTxt(26,82,'your browser','vm')+
+    vBox(206,50,118,40,'c')+vTxt(216,67,'server','vl','style="font-weight:700"')+vTxt(216,82,'example.com','vm')+
+    vTxt(16,106,'1  server shows its certificate','vm','style="fill:var(--ink)" xml:space="preserve"')+V.tag(262,96,'checked','a')+V.arr(312,116,30,116,'a')+
+    vTxt(16,138,'2  client is not asked for one','vm','xml:space="preserve"')+V.arr(30,148,312,148,'m',1)+
+    `<rect x="16" y="160" width="308" height="34" rx="8" style="fill:var(--ctrl-bg);stroke:var(--ctrl)" stroke-width="1.3"/>`+
+    vTxt(26,181,'3  then everything is encrypted','vl','xml:space="preserve" style="white-space:pre"')),
+  tlsBoth:()=>vZoom('Mutual TLS: both ends show ID','OpenShell CLI → gateway','c',
+    vBox(16,50,118,40,'u')+vTxt(26,67,'openshell CLI','vl','style="font-weight:700"')+vTxt(26,82,'has a client key','vm')+
+    vBox(206,50,118,40,'c')+vTxt(216,67,'gateway','vl','style="font-weight:700"')+vTxt(216,82,'127.0.0.1:17670','vm')+
+    vTxt(16,106,'1  gateway shows its certificate','vm','style="fill:var(--ink)" xml:space="preserve"')+V.tag(262,96,'checked','a')+V.arr(312,116,30,116,'a')+
+    vTxt(16,138,'2  CLI shows its certificate','vm','style="fill:var(--ink)" xml:space="preserve"')+V.tag(262,128,'checked','a')+V.arr(30,148,312,148,'a')+
+    vBox(16,160,308,34,'d')+vTxt(26,181,'another program, no client key')+V.tag(254,168,'refused','d')),
   window:()=>vZoom('Close-up: the reconnect window','same supervisor process only','c',
     vTxt(16,70,'babysitter lost','vl','style="font-weight:600"')+vTxt(324,70,'30 s','vl','text-anchor="end" style="font-weight:600"')+
     `<rect x="16" y="78" width="308" height="20" rx="10" style="fill:var(--ctrl-bg);stroke:var(--accent)" stroke-width="1.6"/>`+
@@ -1997,7 +2051,7 @@ function renderModule(){
   <div class="card"><div class="beat">Module ${modIdx} of ${LESSON.length-1}</div><h2>${md(m.title)}</h2><p class="goal">${md(m.goal)}</p>
   ${modIdx===0?LAB_SETUP:''}</div>
   <div class="card"><div class="beat">1 · Predict</div><h3>Commit to an answer before you look</h3>${question(m.predict,'p',m.id,true)}</div>
-  ${m.fig?`<div class="card"><div class="beat">2 · Explore</div><p style="margin:0">${md(m.explore)}</p></div>`:(m.explore?`<div class="card"><div class="beat">2 · Explore</div>${m.explore}</div>`:'')}`;
+  ${m.fig?`<div class="card"><div class="beat">2 · Explore</div><p style="margin:0">${md(m.explore)}</p>${m.pics?`<div class="lesson-pics">${m.pics.map(f=>`<div class="vis">${f.svg().replace('role="img"',`role="img" aria-label="${esc(f.c)}"`)}<div class="vcap">${esc(f.c)}</div><div class="vtech">${esc(f.t)}</div></div>`).join('')}</div>`:''}</div>`:(m.explore?`<div class="card"><div class="beat">2 · Explore</div>${m.explore}</div>`:'')}`;
   bot.innerHTML=`<div class="card"><div class="beat">3 · Check</div><h3>Recall it without looking back</h3>${m.checks.map((q,i)=>question(q,'c'+i,m.id)).join('')}</div>
   ${m.tryit?`<div class="card"><div class="beat">4 · Try it</div><h3>Run it on your machine</h3><p>${md(m.tryit.intro)}</p><pre><code>${esc(m.tryit.cmd)}</code></pre><p><b>What was recorded when this ran on 2026-11-11:</b></p><pre><code>${esc(m.tryit.expect)}</code></pre><p class="rows">evidence rows: ${m.tryit.rows.join(', ')}</p></div>`:''}
   <div class="card"><div class="beat">5 · Carry it over</div><p class="principle">${md(m.carry.principle)}</p><p>${md(m.carry.text)}</p>${PRIV.lessons[m.id]?`<p><b>In your project:</b> ${md(PRIV.lessons[m.id])}</p>`:''}<p class="rows">evidence rows: ${m.carry.rows.join(', ')}</p></div>
@@ -2074,6 +2128,11 @@ function selftest(){
     setScenario(null);
     LESSON.forEach((m,mi)=>{ setMode('learn',mi);
       if(m.fig&&$('#'+m.fig).hidden) fail.push('module '+mi+': figure hidden');
+      (m.pics||[]).forEach((f,pi)=>{ const svg=$$('#lesson-top .lesson-pics svg')[pi]; if(!svg){fail.push(`module ${mi} picture ${pi+1}: missing`);return;}
+        const sc=svg.getBoundingClientRect().width/VW;
+        $$('text',svg).forEach(t=>{ const bb=t.getBBox(), px=parseFloat(getComputedStyle(t).fontSize)*sc;
+          if(bb.x<0||bb.y<0||bb.x+bb.width>VW+0.5||bb.y+bb.height>VH+0.5) fail.push(`module ${mi} picture ${pi+1}: label outside picture: ${t.textContent}`);
+          if(px<10.5) fail.push(`module ${mi} picture ${pi+1}: label too small (${px.toFixed(1)}px): ${t.textContent}`); }); });
       FIG_IDS.forEach(id=>{ if(id!==m.fig&&!$('#'+id).hidden) fail.push('module '+mi+': extra figure shown '+id); });
       [['p',m.predict]].concat(m.checks.map((q,i)=>['c'+i,q])).forEach(([qid,q])=>{ n.questions++;
         if(!(q.a>=0&&q.a<q.opts.length)) fail.push(`module ${mi} ${qid}: bad answer index`);

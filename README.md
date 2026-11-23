@@ -12,7 +12,7 @@ Or download or clone the repository and open `index.html` in a browser. It is on
 
 - **Start here:** a guided tour of the system map. Press Next and a numbered marker walks you through the whole flow in eleven steps, from your command to the internet.
 - **Explore:** hover over, tap or tab to any part of a figure. A panel explains it in one plain sentence, then shows how it really works as a short sequence of pictures you can step through, then gives the evidence.
-- **Learn:** nine short modules. Each asks you to predict first, then explore a figure, answer recall questions, run a command yourself, and take away one principle.
+- **Learn:** ten short modules, including one on TLS, mutual TLS and why the agent only sees made-up DNS addresses. Each asks you to predict first, then explore a figure, answer recall questions, run a command yourself, and take away one principle.
 
 ## What it covers
 
