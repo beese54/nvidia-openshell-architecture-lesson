@@ -1665,6 +1665,7 @@ const VIS={
      c:'When the agent connects to the made-up address, the babysitter knows which real one it stands for.',t:'synthetic=198.18.0.2 ports=443 · resolved=<real addresses>'}]},
   proxy:{frames:[
     Object.assign({},QSEQ[8],{c:'For an allowed site, the babysitter makes the outside connection itself, from the host network.'}),
+    {b:ALLOWP,svg:()=>VZ.ca(),c:'To read HTTPS, the babysitter made its own certificate authority at startup. It keeps the private key, which signs a card for each site, and hands only the public certificate into the playroom.',t:'KeyPair::generate() · self_signed · "OpenShell Sandbox CA"'},
     Object.assign({},QSEQ[12],{c:'For HTTPS it ends the encryption with its own certificate, so it can read each request\'s method and path.'}),
     Object.assign({},QSEQ[13],{c:'Each request is then checked. With read-only access, GET passes and POST is refused with 403.'})]},
 };
@@ -1691,6 +1692,13 @@ Object.assign(VZ,{
       body+=vTxt(46,y+16.5,s,'vl',on?'style="font-weight:700"':'style="fill:var(--muted)"'); });
     if(foot) body+=vTxt(16,200,foot,'vl','style="fill:var(--muted)"');
     return vZoom(title,sub,'c',body); },
+  ca:()=>vZoom('Close-up: the sandbox CA, in two halves','made fresh when the babysitter starts','t',
+    vBox(16,50,140,74,'t')+vTxt(26,66,'babysitter keeps','vm')+vTxt(26,86,'private key','vl','style="font-weight:700"')+vTxt(26,104,'signs new cards','vm')+
+    `<circle cx="132" cy="82" r="6" fill="none" style="stroke:var(--trust)" stroke-width="2.2"/><path d="M138 82h12M146 82v5M150 82v4" fill="none" style="stroke:var(--trust)" stroke-width="2.2"/>`+
+    V.arr(158,87,180,87,'k')+
+    vBox(184,50,140,74,'u')+vTxt(194,66,'playroom gets','vm')+vTxt(194,86,'public certificate','vl','style="font-weight:700"')+vTxt(194,104,'checks cards','vm')+
+    vTxt(16,142,'Only the public half crosses into the playroom.','vl','style="fill:var(--muted)"')+
+    vBox(16,152,308,44)+vTxt(26,169,'card shown to the agent for example.com','vl')+vTxt(26,186,'issuer: OpenShell Sandbox CA','vm','style="fill:var(--ink);font-weight:600"')),
   window:()=>vZoom('Close-up: the reconnect window','same supervisor process only','c',
     vTxt(16,70,'babysitter lost','vl','style="font-weight:600"')+vTxt(324,70,'30 s','vl','text-anchor="end" style="font-weight:600"')+
     `<rect x="16" y="78" width="308" height="20" rx="10" style="fill:var(--ctrl-bg);stroke:var(--accent)" stroke-width="1.6"/>`+
@@ -1829,7 +1837,8 @@ Object.assign(VIS,{
   capub:{frames:[
     vf(vs('room child',V.tag(6,90,'ca.crt (public)','u')),'A small folder in the playroom holds the babysitter\'s public certificate, so tools accept the certificates it shows.','/run/openshell-supervisor-ca/material'),
     vf(()=>VZ.rows('Close-up: variables point tools at it','six in total','u',[{a:'SSL_CERT_FILE, GIT_SSL_CAINFO',m:1,b:'ca-bundle.crt'},{a:'NODE_EXTRA_CA_CERTS, DENO_CERT',m:1,b:'ca.crt'},{a:'the private key',tag:['not here','d']}]),
-     'Common tools are pointed at it. The private key stays with the babysitter.','ca.crt · ca-bundle.crt')]},
+     'Common tools are pointed at it. The private key stays with the babysitter.','ca.crt · ca-bundle.crt'),
+    vf(()=>VZ.ca(),'Two halves: the babysitter keeps the private key that signs cards; the playroom gets only the public certificate that checks them. Holding the key would let anyone forge a card for any site.','public certificate here · CA private key only in the supervisor')]},
   noroute:{frames:[FENCE1,FENCE2]},
   kernel:{frames:[
     vf(vs('desk room sitter floor',V.ring(2,174,336,34)),'seccomp, Landlock, capabilities and file permissions are all features of this one floor.','the Linux kernel, shared by the host and both containers'),
